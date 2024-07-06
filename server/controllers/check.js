@@ -4,7 +4,7 @@ import config from "config";
 const router = express.Router();
 import nodemailer from "nodemailer";
 import twilio from "twilio";
-
+import bcrypt from "bcryptjs";
 
 
     let HOST = config.get("HOST");
@@ -87,7 +87,10 @@ router.post("/register", async(req,res) => {
         let phoneotp = Math.floor((Math.random() * 10000000));
         // sensSMS(Phone,`To verify your number ->6 digit pin is ${phoneotp}`);
 
-        const dataa = await CheckModel.create({Name, Email, Phone, Password, otp, phoneotp,phoneverify:false ,mailverify:false });
+        // for hashing password
+        let hashedPassword = await bcrypt.hash(Password, 10);
+
+        const dataa = await CheckModel.create({Name, Email, Phone, Password:hashedPassword, otp, phoneotp,phoneverify:false ,mailverify:false });
         res.status(200).json({dataa});
     } catch (error) {
         console.log(error);
@@ -144,16 +147,21 @@ router.get("/login", async(req,res)=>{
     try {
         const {Email, Password} = req.body;
         const user = await CheckModel.findOne({Email: Email});
+
+        let match = await bcrypt.compare(Password,user.Password)
         if(user.phoneverify==false){
             res.status(402).json({message:"phone number is not verified"});
         }
         if(user.mailverify==false){
-            res.status(402).json({message:"phone number is not verified"});
+            res.status(402).json({message:"Mail is not verified"});
         }
-        if(user.phoneverify==true && user.mailverify==true && user.Password == Password) {
+        if(!match){
+            res.status(402).json({message:"Password is different"});
+        }
+        if(user.phoneverify==true && user.mailverify==true && match) {
             res.status(202).json({message:"Login is successfull"});
         }else{
-            res.status(401).json({message:"Password is wrong"});
+            res.status(401).json({message:"Something is wrong with input"});
         }
     } catch (error) {
         console.log(error)
@@ -217,4 +225,3 @@ router.delete("/delall", async (req, res) => {
 
 
 export default router ;
-// export default Email;
